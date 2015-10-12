@@ -6,3 +6,6 @@ Windows Setup
     pip install selenium
 3. Need to install scrapy
     pip install Scrapy
+4. Need to install Pillow for image processing
+    pip install Pillow
+5. Install pywin32. Depending on your version of windows this may not be necessary. If needed an error relating to "Scrapy crashes with: ImportError: No module named win32api" will be seen. 

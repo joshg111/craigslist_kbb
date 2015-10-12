@@ -1,9 +1,9 @@
-from scrapy.contrib.spiders import CrawlSpider, Rule
+from scrapy.spiders import CrawlSpider, Rule
 from scrapy.selector import HtmlXPathSelector
 from craigslist_sample.items import CraigslistSampleItem, KbbItem
-from scrapy.contrib.linkextractors import LinkExtractor
+from scrapy.linkextractors import LinkExtractor
 from scrapy import Request
-import logging
+#import logging
 from subprocess import check_output
 from selenium import webdriver
 import re
@@ -17,8 +17,6 @@ import os
 class MySpider(CrawlSpider):
     
     name = "craigs"
-    kbb_response_count = 0
-    kbb_request_count = 0
         
     def __init__(self, url_list, input_args, *args, **kwargs):
         self.input_args = input_args
@@ -30,12 +28,12 @@ class MySpider(CrawlSpider):
             
         self.start_urls = url_list
         self.allowed_domains = ["sandiego.craigslist.org", "kbb.com"]
-        print("start_urls = " + str(self.start_urls))
+        print("start_urls1 = " + str(self.start_urls))
+        print("input_args = " + str(input_args))
         
         self.web_driver = webdriver.PhantomJS(executable_path=r'phantomjs-2.0.0-windows\bin\phantomjs.exe')
 	
     def spider_closed(self, spider):
-        logging.debug("destructor kbb_response_count = " + str(MySpider.kbb_response_count))
         self.web_driver.close()
     
     def spider_type(self):
@@ -82,11 +80,9 @@ class MySpider(CrawlSpider):
         return price_list
     
     def kbb_parse(self, response):
-        logging.debug("inside kbb_parse")
-        MySpider.kbb_response_count += 1
-        logging.debug("kbb_response_count = " + str(MySpider.kbb_response_count))
+        #logging.debug("inside kbb_parse")
         craigs_item = response.meta['item']
-        logging.debug("processing request = " + str(craigs_item["kbb_url"]))
+        #logging.debug("processing request = " + str(craigs_item["kbb_url"]))
         item = KbbItem()
         
         attrs = response.xpath('//h2[@class="section-title white with-module"]')
@@ -100,7 +96,7 @@ class MySpider(CrawlSpider):
             
         attrs = response.xpath('//div[@class="vehicle-styles-container clear row-white first"]//a/@href')
         if not attrs or not attrs[0]:
-            logging.warning("Failed to find style")
+            #logging.warning("Failed to find style")
             return
         
         item["style"] = attrs[0].extract().replace('options/', '')
@@ -118,11 +114,12 @@ class MySpider(CrawlSpider):
             yield craigs_item
     
     def download_errback(self, e):
-        logging.error("type = " + str(type(e)) + ", repr = " + str(repr(e)))
-        logging.error("value = " + str(repr(e.value)))
+        #logging.error("type = " + str(type(e)) + ", repr = " + str(repr(e)))
+        #logging.error("value = " + str(repr(e.value)))
+        pass
     
     def parse_items(self, response):
-        logging.debug("parse_items")
+        #logging.debug("parse_items")
         request = None
         items = []
         item_set = True
@@ -160,7 +157,8 @@ class MySpider(CrawlSpider):
                 item["type"] = attr.xpath('b/text()').extract()[0].split()[0]
             
             else:
-                print "Failed to match attribute = " + str(span_text_list)
+                #print "Failed to match attribute = " + str(span_text_list)
+                pass
             
         if "make" in item and "model" in item and "year" in item and "odometer" in item and \
         item['odometer'] <= self.input_args.max_miles:
@@ -172,12 +170,10 @@ class MySpider(CrawlSpider):
             else:
                 kbb_url += "sedan"
                 
-            logging.debug("kbb_url = " + str(kbb_url))
+            #logging.debug("kbb_url = " + str(kbb_url))
             item["kbb_url"] = kbb_url
             request = Request(item["kbb_url"], callback=self.kbb_parse, errback=self.download_errback, dont_filter=True)
             request.meta['item'] = item
-            MySpider.kbb_request_count += 1
-            logging.debug("kbb_request_count = " + str(MySpider.kbb_request_count))
             yield request
             
             

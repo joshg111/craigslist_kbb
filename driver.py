@@ -1,8 +1,10 @@
 import os
 import sys
 from twisted.internet import reactor
-from scrapy.crawler import Crawler
-from scrapy import log, signals
+#from scrapy.crawler import Crawler
+from scrapy.crawler import CrawlerProcess
+from scrapy.crawler import CrawlerRunner
+from scrapy import signals
 from craigslist_sample.spiders.test import MySpider
 from scrapy.utils.project import get_project_settings
 import argparse
@@ -14,14 +16,19 @@ TRANSMISSION = {'automatic': '2', 'manual': '1'}
 def setup_crawler(spider_type, url_list, args):
     spider = None
     if spider_type == MySpider:
-        spider = spider_type(url_list, input_args=args)
+        #spider = spider_type(url_list, input_args=args)
+        pass
         
     settings = get_project_settings()
-    crawler = Crawler(settings)
-    crawler.signals.connect(reactor.stop, signal=signals.spider_closed)
-    crawler.configure()
-    crawler.crawl(spider)
+    crawler = CrawlerProcess(settings)
+    #crawler.signals.connect(reactor.stop, signal=signals.spider_closed)
+    #crawler.configure()
+    #crawler.crawl(spider, [], {})
+    crawler.crawl('craigs', url_list, args)
+    #d.addBoth(lambda _: reactor.stop())
     crawler.start()
+    #d.addBoth(lambda _: reactor.stop())
+    #reactor.run()
 
 def build_craigs_url(args):
     base_url = "http://sandiego.craigslist.org/search/cto?sort=date&hasPic=1&auto_title_status=1&auto_fuel_type=1"
@@ -62,17 +69,17 @@ def get_args():
     return args
 
 def main():
-    logging.basicConfig(format='%(asctime)s %(filename)s:%(lineno)s %(levelname)s:%(message)s'
-, filename='log.log', level=logging.DEBUG)
-    logging.debug("main method")
+    #logging.basicConfig(format='%(asctime)s %(filename)s:%(lineno)s %(levelname)s:%(message)s'
+#, filename='log.log', level=logging.DEBUG)
+    #logging.debug("main method")
     args = get_args()
     url_list = build_craigs_url(args)
     # For type in spider_types:
     setup_crawler(MySpider, url_list, args)
     
-    log.start()
+    #log.start()
     # The script will block here until the spider_closed signal was sent
-    reactor.run() 
+    #reactor.run() 
     print "\n\nspiders finished crawling\n\n"
 
 if __name__ == "__main__":
