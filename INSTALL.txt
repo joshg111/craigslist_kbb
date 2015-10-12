@@ -1,0 +1,8 @@
+Windows Setup
+
+1. Install python and pip for python. 
+    a. Add python home to path variable. 
+2. Need to install selenium
+    pip install selenium
+3. Need to install scrapy
+    pip install Scrapy
