@@ -23,6 +23,7 @@ class MySpider(CrawlSpider):
     dropped_cars = 0
     found_cars = 0
     download_failures = 0
+    kbb_parsed = 0
     
     def __init__(self, url_list, input_args, *args, **kwargs):
         self.input_args = input_args
@@ -43,15 +44,26 @@ class MySpider(CrawlSpider):
         self.web_driver.close()
         print "Dropped cars = " + str(MySpider.dropped_cars)
     
-    def spider_type(self):
-        return "MySpider"
+    def find_model(self, model):
+        for sub_make_model in self.input_args.make_model:
+            removed_make = sub_make_model[sub_make_model.find('+')+1:]
+            removed_plus = removed_make.replace('+', '-').lower()
+            if model.lower().find(removed_plus) > -1:
+                final_model = removed_plus
+                if removed_plus in MySpider.kbb_models:
+                    final_model = MySpider.kbb_models[final_model]
+                
+                return final_model
+                
+        print("Failed to find model = " + str(model) + ", using input = " + str(removed_plus))
+        return None
+            
     
     def kbb_request(self, url):
         self.web_driver.get(url)
-        WebDriverWait(self.web_driver, 10).until(EC.presence_of_element_located((By.ID, "usedMarketMeter")))
+        WebDriverWait(self.web_driver, 20).until(EC.presence_of_element_located((By.ID, "usedMarketMeter")))
         widget_id = self.web_driver.find_element_by_id("market-meter-widget-image-1")
         img_src = widget_id.get_attribute('src')        
-        
         imgstr = re.search(r'base64,(.*)', img_src).group(1)
         output = open('output.png', 'wb')
         output.write(imgstr.decode('base64'))
@@ -87,6 +99,8 @@ class MySpider(CrawlSpider):
         return price_list
     
     def kbb_parse(self, response):
+        MySpider.kbb_parsed += 1
+        print("MySpider.kbb_parsed = " + str(MySpider.kbb_parsed))
         craigs_item = response.meta['item']
         item = KbbItem()
         
@@ -111,6 +125,7 @@ class MySpider(CrawlSpider):
         item["url"] = final_kbb_url
         craigs_item['kbb_url'] = final_kbb_url
         good_condition_price = self.kbb_request(final_kbb_url)
+        print("kbb_price = " + str(good_condition_price))
 
         if good_condition_price:            
             craigs_item['good_condition_price'] = good_condition_price
@@ -174,12 +189,12 @@ class MySpider(CrawlSpider):
         if "make" in item and "model" in item and "year" in item and "odometer" in item and \
         item['odometer'] <= self.input_args.max_miles:
             model_str = '-'.join([str(i) for i in item["model"]])
-            if model_str.lower() in MySpider.kbb_models:
-                model_str = MySpider.kbb_models[model_str]
+            model_str = self.find_model(model_str)
                 
             kbb_url = "http://www.kbb.com/" + item["make"] + "/" + model_str + "/" + item["year"] + "-" + item["make"] + "-" + model_str + "/styles/?intent=buy-used"
             kbb_url += "&bodystyle="
             if "type" in item:
+                #kbb_url += "&bodystyle="
                 kbb_url += item["type"]
             else:
                 kbb_url += "sedan"
@@ -189,16 +204,13 @@ class MySpider(CrawlSpider):
             request.meta['item'] = item
             MySpider.found_cars += 1
             print "Found cars = " + str(MySpider.found_cars)
-            print "Response = " + str(response.url)
+            #print "Response = " + str(response.url)
             yield request
             
         else:
             #print "Didn't find all attributes for this vehicle"
             MySpider.dropped_cars += 1
             print "Dropped cars = " + str(MySpider.dropped_cars)
-            print "Response = " + str(response.url)
-            for i in item:
-                print "i = " + str(i)
-                
+            #print "Response = " + str(response.url)                
         
         
