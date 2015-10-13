@@ -1,7 +1,6 @@
 import os
 import sys
 from twisted.internet import reactor
-#from scrapy.crawler import Crawler
 from scrapy.crawler import CrawlerProcess
 from scrapy.crawler import CrawlerRunner
 from scrapy import signals
@@ -10,25 +9,13 @@ from scrapy.utils.project import get_project_settings
 import argparse
 import logging
 
-
 TRANSMISSION = {'automatic': '2', 'manual': '1'}
 
-def setup_crawler(spider_type, url_list, args):
-    spider = None
-    if spider_type == MySpider:
-        #spider = spider_type(url_list, input_args=args)
-        pass
-        
+def setup_crawler(url_list, args):        
     settings = get_project_settings()
     crawler = CrawlerProcess(settings)
-    #crawler.signals.connect(reactor.stop, signal=signals.spider_closed)
-    #crawler.configure()
-    #crawler.crawl(spider, [], {})
     crawler.crawl('craigs', url_list, args)
-    #d.addBoth(lambda _: reactor.stop())
     crawler.start()
-    #d.addBoth(lambda _: reactor.stop())
-    #reactor.run()
 
 def build_craigs_url(args):
     base_url = "http://sandiego.craigslist.org/search/cto?sort=date&hasPic=1&auto_title_status=1&auto_fuel_type=1"
@@ -41,7 +28,7 @@ def build_craigs_url(args):
     max_miles = str(args.max_miles)
     
     url_list = []
-    print("make_model_list = " + str(make_model_list))
+    print("\nmake_model_list = " + str(make_model_list))
     for make_model in make_model_list:
         url = base_url
         if args.transmission:
@@ -55,7 +42,7 @@ def build_craigs_url(args):
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, description="Find deals on craigslist cars by comparing the price to kelley blue book.")
-    parser.add_argument("make_model", nargs='+', help="The make model of the cars. Models are optional. Ex: Toyota Honda+Civic Nissan+Altima")
+    parser.add_argument("make_model", nargs='+', help="The make model of the cars. Models are optional. Ex: Honda Nissan+Altima toyota+land+cruiser+wagon. This example will search on all Honda's, Nissan Altimas, and Toyota land cruiser wagon's")
     parser.add_argument("-e", "--excess_price", type=int, default=15, choices=xrange(100), metavar="[0-99]", help="The maximum percentage the craigslist price can exceed the kelley blue book price.")
     parser.add_argument("--min_price", type=int, default=0, help="The minimum price of the car.")
     parser.add_argument("--max_price", type=int, default=11000, help="The maximum price of the car.")
@@ -69,17 +56,11 @@ def get_args():
     return args
 
 def main():
-    #logging.basicConfig(format='%(asctime)s %(filename)s:%(lineno)s %(levelname)s:%(message)s'
-#, filename='log.log', level=logging.DEBUG)
-    #logging.debug("main method")
     args = get_args()
     url_list = build_craigs_url(args)
-    # For type in spider_types:
-    setup_crawler(MySpider, url_list, args)
+
+    setup_crawler(url_list, args)
     
-    #log.start()
-    # The script will block here until the spider_closed signal was sent
-    #reactor.run() 
     print "\n\nspiders finished crawling\n\n"
 
 if __name__ == "__main__":
