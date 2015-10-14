@@ -61,6 +61,7 @@ class MySpider(CrawlSpider):
     
     def kbb_request(self, url):
         self.web_driver.get(url)
+        print("url = " + url)
         WebDriverWait(self.web_driver, 20).until(EC.presence_of_element_located((By.ID, "usedMarketMeter")))
         widget_id = self.web_driver.find_element_by_id("market-meter-widget-image-1")
         img_src = widget_id.get_attribute('src')        
@@ -88,6 +89,9 @@ class MySpider(CrawlSpider):
 
     
     def tesseract(self):
+        MySpider.kbb_parsed += 1
+        print("MySpider.kbb_parsed = " + str(MySpider.kbb_parsed))
+        
         check_output(r'tess1\tesseract.exe cropped_output.png numbers -l kbb', shell=True)
 
         path = "numbers.txt"
@@ -99,11 +103,38 @@ class MySpider(CrawlSpider):
         return price_list
     
     def kbb_parse(self, response):
-        MySpider.kbb_parsed += 1
-        print("MySpider.kbb_parsed = " + str(MySpider.kbb_parsed))
+        print("response url = " + response.url)
         craigs_item = response.meta['item']
+        print("craigs url = " + craigs_item["url"])
         item = KbbItem()
         
+        # Get the kbb style type of the car, optional. 
+        attrs = response.xpath('//div[@class="mod-single"]')
+        if attrs:
+            attrs = response.xpath('//div[@class="mod-category-inner"]//a/@href')
+            if attrs and attrs[0]:
+                print("\n\nhere")
+                craigs_item["kbb_url"] = "http://www.kbb.com" + attrs[0].extract()
+                print("new kbb url = " + craigs_item["kbb_url"])
+                request = Request(craigs_item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, craigs_item["kbb_url"], response.url), dont_filter=True)
+                request.meta['item'] = craigs_item
+                print("craigs url = " + craigs_item["url"] + "\n\n")
+                yield request
+                return
+        
+        # Get the kbb style of the car
+        attrs = response.xpath('//div[@class="vehicle-styles-container clear row-white first"]//a/@href')
+        final_kbb_url = ""
+        if not attrs or not attrs[0]:
+            final_kbb_url = response.url.replace('options/', '')
+            
+        else:
+            item["style"] = attrs[0].extract().replace('options/', '')
+            final_kbb_url = "http://www.kbb.com" + item["style"]
+        
+        
+        
+        # Get the kbb title of the car
         attrs = response.xpath('//h2[@class="section-title white with-module"]')
         title = None
         items = []
@@ -111,15 +142,6 @@ class MySpider(CrawlSpider):
             title = attrs[0].xpath('text()').extract()[0]
             item['title'] = title
             items.append(item)
-            
-        attrs = response.xpath('//div[@class="vehicle-styles-container clear row-white first"]//a/@href')
-        final_kbb_url = ""
-        if not attrs or not attrs[0]:
-            final_kbb_url = response.url.replace('options/', '')
-
-        else:
-            item["style"] = attrs[0].extract().replace('options/', '')
-            final_kbb_url = "http://www.kbb.com" + item["style"]
         
         final_kbb_url += "&condition=good&mileage=" + str(craigs_item['odometer']) + "&pricetype=private-party&printable=true"
         item["url"] = final_kbb_url
@@ -192,12 +214,12 @@ class MySpider(CrawlSpider):
             model_str = self.find_model(model_str)
                 
             kbb_url = "http://www.kbb.com/" + item["make"] + "/" + model_str + "/" + item["year"] + "-" + item["make"] + "-" + model_str + "/styles/?intent=buy-used"
-            kbb_url += "&bodystyle="
+            #kbb_url += "&bodystyle="
             if "type" in item:
-                #kbb_url += "&bodystyle="
+                kbb_url += "&bodystyle="
                 kbb_url += item["type"]
-            else:
-                kbb_url += "sedan"
+            #else:
+                #kbb_url += "sedan"
                 
             item["kbb_url"] = kbb_url
             request = Request(item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, item["kbb_url"], response.url), dont_filter=True)
