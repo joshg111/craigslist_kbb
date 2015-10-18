@@ -9,3 +9,4 @@ Windows Setup
 4. Need to install Pillow for image processing
     pip install Pillow
 5. Install pywin32. Depending on your version of windows this may not be necessary. If needed an error relating to "Scrapy crashes with: ImportError: No module named win32api" will be seen. 
+    a. You can install from this site: http://sourceforge.net/projects/pywin32/files/pywin32/Build%20219/

@@ -38,7 +38,7 @@ class MySpider(CrawlSpider):
         print("\nstart_urls = " + str(self.start_urls) + "\n")
         print("input_args = " + str(input_args) + "\n\n")
         
-        self.web_driver = webdriver.PhantomJS(executable_path=r'phantomjs-2.0.0-windows\bin\phantomjs.exe')
+        #self.web_driver = webdriver.PhantomJS(executable_path=r'phantomjs-2.0.0-windows\bin\phantomjs.exe')
 	
     def spider_closed(self, spider):
         self.web_driver.close()
@@ -79,27 +79,18 @@ class MySpider(CrawlSpider):
     
     def crop_image(self):
         box = (45, 48, 122, 68)
-        
         im = Image.open("output.png")
         crop = im.crop(box)
         return crop.save("cropped_output.png")
     
     def to_int(self, price):
         return int(price.replace(',', ''))
-
     
     def tesseract(self):
-        MySpider.kbb_parsed += 1
-        print("MySpider.kbb_parsed = " + str(MySpider.kbb_parsed))
-        
         check_output(r'tess1\tesseract.exe cropped_output.png numbers -l kbb', shell=True)
-
         path = "numbers.txt"
-        
         fd = open(path, 'r')
-        
         price_list = sorted(map(self.to_int, re.findall("\$(\d+,*\d*)", fd.read())))
-        
         return price_list
     
     def kbb_parse(self, response):
@@ -132,8 +123,6 @@ class MySpider(CrawlSpider):
             item["style"] = attrs[0].extract().replace('options/', '')
             final_kbb_url = "http://www.kbb.com" + item["style"]
         
-        
-        
         # Get the kbb title of the car
         attrs = response.xpath('//h2[@class="section-title white with-module"]')
         title = None
@@ -146,17 +135,23 @@ class MySpider(CrawlSpider):
         final_kbb_url += "&condition=good&mileage=" + str(craigs_item['odometer']) + "&pricetype=private-party&printable=true"
         item["url"] = final_kbb_url
         craigs_item['kbb_url'] = final_kbb_url
-        good_condition_price = self.kbb_request(final_kbb_url)
-        print("kbb_price = " + str(good_condition_price))
+        MySpider.kbb_parsed += 1
+        print("MySpider.kbb_parsed = " + str(MySpider.kbb_parsed))
+        craigs_item['id'] = MySpider.kbb_parsed
+        yield craigs_item
+        
+        ###################################################################################################
+        #good_condition_price = self.kbb_request(final_kbb_url)
+        #print("kbb_price = " + str(good_condition_price))
 
-        if good_condition_price:            
-            craigs_item['good_condition_price'] = good_condition_price
+        #if good_condition_price:            
+        #    craigs_item['good_condition_price'] = good_condition_price
         
-        percent_above_kbb = int(((float(craigs_item['price']) / good_condition_price) - 1) * 100)
-        craigs_item["percent_above_kbb"] = str(percent_above_kbb) + "%"
+        #percent_above_kbb = int(((float(craigs_item['price']) / good_condition_price) - 1) * 100)
+        #craigs_item["percent_above_kbb"] = str(percent_above_kbb) + "%"
         
-        if percent_above_kbb <= self.input_args.excess_price:
-            yield craigs_item
+        #if percent_above_kbb <= self.input_args.excess_price:
+        #    yield craigs_item
     
     def download_errback(self, e, kbb_url, craigs_url):
         #print("type = " + str(type(e)) + ", repr = " + str(repr(e)))

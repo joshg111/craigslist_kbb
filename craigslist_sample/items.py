@@ -15,6 +15,7 @@ class CraigslistSampleItem(scrapy.Item):
     good_condition_price = Field()
     percent_above_kbb = Field()
     price_list = Field()
+    id = Field()
     
 class KbbItem(scrapy.Item):
     title = Field()
