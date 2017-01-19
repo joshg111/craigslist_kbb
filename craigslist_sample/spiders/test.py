@@ -7,10 +7,6 @@ from scrapy import Request
 from subprocess import check_output
 from selenium import webdriver
 import re
-from PIL import Image
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 import time
 import os
 
@@ -28,7 +24,8 @@ class MySpider(CrawlSpider):
     def __init__(self, url_list, input_args, *args, **kwargs):
         self.input_args = input_args
         self.rules = (
-                Rule (LinkExtractor(restrict_xpaths=('//span/span/a[@class="hdrlnk"]')), callback=self.parse_items,  follow= True),
+                #Rule (LinkExtractor(restrict_xpaths=('//span/span/a[@class="hdrlnk"]')), callback=self.parse_items,  follow= True),
+                Rule (LinkExtractor(restrict_xpaths=('//a[@class="result-image gallery"]')), callback=self.parse_items,  follow= True),
             )
             
         super(MySpider, self).__init__(*args, **kwargs)
@@ -58,41 +55,6 @@ class MySpider(CrawlSpider):
         print("Failed to find model = " + str(model) + ", using input = " + str(removed_plus))
         return None
             
-    
-    def kbb_request(self, url):
-        self.web_driver.get(url)
-        print("url = " + url)
-        WebDriverWait(self.web_driver, 20).until(EC.presence_of_element_located((By.ID, "usedMarketMeter")))
-        widget_id = self.web_driver.find_element_by_id("market-meter-widget-image-1")
-        img_src = widget_id.get_attribute('src')        
-        imgstr = re.search(r'base64,(.*)', img_src).group(1)
-        output = open('output.png', 'wb')
-        output.write(imgstr.decode('base64'))
-        output.close()
-
-        self.crop_image()
-        price_list = self.tesseract()
-        os.remove('output.png')
-        if not price_list:
-            return 0
-        return price_list[0]
-    
-    def crop_image(self):
-        box = (45, 48, 122, 68)
-        im = Image.open("output.png")
-        crop = im.crop(box)
-        return crop.save("cropped_output.png")
-    
-    def to_int(self, price):
-        return int(price.replace(',', ''))
-    
-    def tesseract(self):
-        check_output(r'tess1\tesseract.exe cropped_output.png numbers -l kbb', shell=True)
-        path = "numbers.txt"
-        fd = open(path, 'r')
-        price_list = sorted(map(self.to_int, re.findall("\$(\d+,*\d*)", fd.read())))
-        return price_list
-    
     def kbb_parse(self, response):
         print("response url = " + response.url)
         craigs_item = response.meta['item']

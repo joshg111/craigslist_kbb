@@ -1,3 +1,4 @@
+import urllib2
 import json
 import os
 import sys
@@ -7,12 +8,8 @@ from scrapy import signals
 from craigslist_sample.spiders.test import MySpider
 from scrapy.utils.project import get_project_settings
 from subprocess import check_output
-from selenium import webdriver
 import re
 from PIL import Image
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 import threading
 
 threadLock = threading.Lock()
@@ -23,45 +20,19 @@ class KbbParser(object):
         self.file_id = file_id
         
     def kbb_request(self, url):
-        web_driver = webdriver.PhantomJS(executable_path=r'phantomjs-2.0.0-windows\bin\phantomjs.exe')
-        web_driver.get(url)
-        print("url = " + url)
-        #WebDriverWait(web_driver, 8).until(EC.presence_of_element_located((By.ID, "usedMarketMeter")))
-        widget_id = web_driver.find_element_by_id("market-meter-widget-image-1")
-        img_src = widget_id.get_attribute('src')
-        web_driver.quit()
-        imgstr = re.search(r'base64,(.*)', img_src).group(1)
-        output = open('output' + str(self.file_id) + '.png', 'wb')
-        output.write(imgstr.decode('base64'))
-        output.close()
-
-        self.crop_image()
-        price_list = self.tesseract()
-        os.remove('output' + str(self.file_id) + '.png')
-        if not price_list:
-            return 0
-        return price_list[0]
-
-    def crop_image(self):
-        box = (45, 48, 122, 68)
-        im = Image.open('output' + str(self.file_id) + '.png')
-        crop = im.crop(box)
-        crop.save("cropped_output" + str(self.file_id) + ".png")
-        #im.close()
+        user_agent = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_4; en-US) AppleWebKit/534.3 (KHTML, like Gecko) Chrome/6.0.472.63 Safari/534.3'
+        headers = { 'User-Agent' : user_agent }
+        req = urllib2.Request(url, None, headers)
+        response = urllib2.urlopen(req)
+        page = response.read()
+        response.close() # its always safe to close an open connection
         
-    def to_int(self, price):
-        return int(price.replace(',', ''))
-
-    def tesseract(self):
-        check_output(r'tess1\tesseract.exe ' + "cropped_output" + str(self.file_id) + ".png" + ' numbers' + str(self.file_id) + ' -l kbb', shell=True)
-        path = "numbers" + str(self.file_id) + ".txt"
-        fd = open(path, 'r')
-        price_list = sorted(map(self.to_int, re.findall("\$(\d+,*\d*)", fd.read())))
-        fd.close()
-        os.remove(path)
-        os.remove("cropped_output" + str(self.file_id) + ".png")
-        return price_list
-
+        m = re.search('defaultprice\': \'(\d*)\'', page)
+        if m == None:
+            return 0
+            
+        return int(m.group(1))
+        
     def kbb_parse(self, craigs_item, excess_price): 
         print("kbb_parse(...)")
         final_kbb_url = craigs_item['kbb_url']
