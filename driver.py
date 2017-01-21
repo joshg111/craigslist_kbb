@@ -11,10 +11,12 @@ import logging
 
 TRANSMISSION = {'automatic': '2', 'manual': '1'}
 
-def setup_crawler(url_list, args):        
+def setup_crawler(url_list, args):
     settings = get_project_settings()
     crawler = CrawlerProcess(settings)
+    print "setup_crawler before"
     crawler.crawl('craigs', url_list, args)
+    print "setup_crawler"
     crawler.start()
 
 def build_craigs_url(args):
@@ -26,18 +28,18 @@ def build_craigs_url(args):
     max_year = str(args.max_year)
     min_miles = str(args.min_miles)
     max_miles = str(args.max_miles)
-    
+
     url_list = []
     print("\nmake_model_list = " + str(make_model_list))
     for make_model in make_model_list:
         url = base_url
         if args.transmission:
             url += "&auto_transmission=" + TRANSMISSION[args.transmission]
-        
+
         url += "&min_price=" + min_price + "&max_price=" + max_price + "&auto_make_model=" + make_model + "&min_auto_year=" + min_year + "&max_auto_year=" + max_year + "&min_auto_miles=" + min_miles + "&max_auto_miles=" + max_miles
-        
+
         url_list.append(url)
-  
+
     return url_list
 
 def get_args():
@@ -51,7 +53,7 @@ def get_args():
     parser.add_argument("--min_miles", type=int, default=0, help="The minimum number of miles on the car.")
     parser.add_argument("--max_miles", type=int, default=140000, help="The maximum number of miles on the car.")
     parser.add_argument("--transmission", choices=["automatic", "manual"], default="automatic", help="The transmission type of the car.")
-    
+
     args = parser.parse_args()
     return args
 
@@ -60,10 +62,8 @@ def main():
     url_list = build_craigs_url(args)
 
     setup_crawler(url_list, args)
-    
+
     print "\n\nspiders finished crawling\n\n"
 
 if __name__ == "__main__":
     main()
-    
-

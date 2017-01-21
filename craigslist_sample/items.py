@@ -3,6 +3,9 @@ from scrapy.item import Item, Field
 
 class CraigslistSampleItem(scrapy.Item):
     price = Field()
+    thumbnail = Field()
+    desc = Field()
+    location = Field()
     url = Field()
     year = Field()
     make = Field()
@@ -16,7 +19,7 @@ class CraigslistSampleItem(scrapy.Item):
     percent_above_kbb = Field()
     price_list = Field()
     id = Field()
-    
+
 class KbbItem(scrapy.Item):
     title = Field()
     url = Field()
