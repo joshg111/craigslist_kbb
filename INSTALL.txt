@@ -2,16 +2,12 @@ Windows Setup
 
 1. Install python and pip for python. 
     a. Add python home to path variable. 
-2. Need to install selenium
-    pip install selenium
-3. Scrapy requires lxml. 
+2. Scrapy requires lxml. This may be installed automatically when installing Scrapy as noted below. 
     pip install wheel
     Then, download the lxml binary, and choose the appropriate one for your system. 
     http://www.lfd.uci.edu/~gohlke/pythonlibs/#lxml
     pip install filename.whl
-4. Need to install scrapy
+3. Need to install scrapy
     pip install Scrapy
-5. Need to install Pillow for image processing
-    pip install Pillow
-6. Install pywin32. Depending on your version of windows this may not be necessary. If needed an error relating to "Scrapy crashes with: ImportError: No module named win32api" will be seen. 
+5. Install pywin32. Depending on your version of windows this may not be necessary. If needed an error relating to "Scrapy crashes with: ImportError: No module named win32api" will be seen. 
     a. You can install from this site: http://sourceforge.net/projects/pywin32/files/pywin32/Build%20219/
