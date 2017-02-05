@@ -3,7 +3,6 @@ from scrapy.selector import HtmlXPathSelector
 from craigslist_sample.items import CraigslistSampleItem, KbbItem
 from scrapy.linkextractors import LinkExtractor
 from scrapy import Request
-#import logging
 from subprocess import check_output
 import re
 import time
@@ -22,22 +21,31 @@ class MySpider(CrawlSpider):
 
     def __init__(self, url_list, input_args, *args, **kwargs):
         self.input_args = input_args
-        self.rules = (
-                #Rule (LinkExtractor(restrict_xpaths=('//span/span/a[@class="hdrlnk"]')), callback=self.parse_items,  follow= True),
-                Rule (LinkExtractor(restrict_xpaths=('//a[@class="result-image gallery"]')), callback=self.parse_items,  follow= True),
-            )
+        # self.rules = (
+        #         Rule (LinkExtractor(restrict_xpaths=('//a[@class="result-image gallery"]')), callback=self.parse_items,  follow= True),
+        #     )
 
         super(MySpider, self).__init__(*args, **kwargs)
 
         self.start_urls = url_list
         self.allowed_domains = ["craigslist.org", "kbb.com"]
-        print("\nstart_urls = " + str(self.start_urls) + "\n")
-        print("input_args = " + str(input_args) + "\n\n")
-
-        #self.web_driver = webdriver.PhantomJS(executable_path=r'phantomjs-2.0.0-windows\bin\phantomjs.exe')
 
     def spider_closed(self, spider):
-        print "Dropped cars = " + str(MySpider.dropped_cars)
+        pass
+
+    def parse_start_url(self, response):
+        cars = response.xpath('//a[@class="result-image gallery"]/@href').extract()
+
+        for i, c in enumerate(cars):
+            url = ""
+            if c.startswith('//'):
+                url = 'http:' + c
+            else:
+                url = 'http://sandiego.craigslist.org' + c
+
+            request = Request(url, callback=self.parse_items, errback = lambda x: self.download_errback(x, url, None), dont_filter=True)
+            if i <= 50:
+                yield request
 
     def find_model(self, model):
         for sub_make_model in self.input_args.make_model:
@@ -50,13 +58,29 @@ class MySpider(CrawlSpider):
 
                 return final_model
 
-        print("Failed to find model = " + str(model) + ", using input = " + str(removed_plus))
         return None
 
-    def kbb_parse(self, response):
-        print("response url = " + response.url)
+    def kbb_final_parse(self, response):
         craigs_item = response.meta['item']
-        print("craigs url = " + craigs_item["url"])
+        page = response.body
+        m = re.search('defaultprice\': \'(\d*)\'', page)
+        if m == None:
+            return
+
+        good_condition_price = int(m.group(1))
+        craigs_item['good_condition_price'] = good_condition_price
+
+        percent_above_kbb = int(((float(craigs_item['price']) / good_condition_price) - 1) * 100)
+        craigs_item["percent_above_kbb"] = percent_above_kbb
+
+
+        # if percent_above_kbb > self.input_args.excess_price:
+        #     return
+
+        yield craigs_item
+
+    def kbb_parse(self, response):
+        craigs_item = response.meta['item']
         item = KbbItem()
 
         # Get the kbb style type of the car, optional.
@@ -64,12 +88,9 @@ class MySpider(CrawlSpider):
         if attrs:
             attrs = response.xpath('//div[@class="mod-category-inner"]//a/@href')
             if attrs and attrs[0]:
-                print("\n\nhere")
                 craigs_item["kbb_url"] = "http://www.kbb.com" + attrs[0].extract()
-                print("new kbb url = " + craigs_item["kbb_url"])
                 request = Request(craigs_item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, craigs_item["kbb_url"], response.url), dont_filter=True)
                 request.meta['item'] = craigs_item
-                print("craigs url = " + craigs_item["url"] + "\n\n")
                 yield request
                 return
 
@@ -96,34 +117,20 @@ class MySpider(CrawlSpider):
         item["url"] = final_kbb_url
         craigs_item['kbb_url'] = final_kbb_url
         MySpider.kbb_parsed += 1
-        print("MySpider.kbb_parsed = " + str(MySpider.kbb_parsed))
         craigs_item['id'] = MySpider.kbb_parsed
-        yield craigs_item
+        request = Request(craigs_item["kbb_url"], callback=self.kbb_final_parse, errback = lambda x: self.download_errback(x, craigs_item["kbb_url"], response.url), dont_filter=True)
+        request.meta['item'] = craigs_item
+        yield request
 
-        ###################################################################################################
-        #good_condition_price = self.kbb_request(final_kbb_url)
-        #print("kbb_price = " + str(good_condition_price))
-
-        #if good_condition_price:
-        #    craigs_item['good_condition_price'] = good_condition_price
-
-        #percent_above_kbb = int(((float(craigs_item['price']) / good_condition_price) - 1) * 100)
-        #craigs_item["percent_above_kbb"] = str(percent_above_kbb) + "%"
-
-        #if percent_above_kbb <= self.input_args.excess_price:
-        #    yield craigs_item
 
     def download_errback(self, e, kbb_url, craigs_url):
-        #print("type = " + str(type(e)) + ", repr = " + str(repr(e)))
-        #print("Error downloading" + str(e))
         MySpider.download_failures += 1
-        print "Download failures = " + str(MySpider.download_failures)
-        print("value = " + str(repr(e.value)))
-        print("kbb_url = " + str(kbb_url))
-        print("craigs_url = " + str(craigs_url))
         pass
 
     def parse_items(self, response):
+        if MySpider.found_cars > 50:
+            return
+
         kbb_url = ""
         request = None
         items = []
@@ -169,7 +176,6 @@ class MySpider(CrawlSpider):
                 item["type"] = attr.xpath('b/text()').extract()[0].split()[0]
 
             else:
-                #print "Failed to match attribute = " + str(span_text_list)
                 pass
 
         if "make" in item and "model" in item and "year" in item and "odometer" in item and \
@@ -177,24 +183,18 @@ class MySpider(CrawlSpider):
             model_str = '-'.join([str(i) for i in item["model"]])
             model_str = self.find_model(model_str)
 
+
             kbb_url = "http://www.kbb.com/" + item["make"] + "/" + model_str + "/" + item["year"] + "-" + item["make"] + "-" + model_str + "/styles/?intent=buy-used"
-            #kbb_url += "&bodystyle="
+
             if "type" in item:
                 kbb_url += "&bodystyle="
                 kbb_url += item["type"]
-            #else:
-                #kbb_url += "sedan"
 
             item["kbb_url"] = kbb_url
             request = Request(item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, item["kbb_url"], response.url), dont_filter=True)
             request.meta['item'] = item
             MySpider.found_cars += 1
-            print "Found cars = " + str(MySpider.found_cars)
-            #print "Response = " + str(response.url)
             yield request
 
         else:
-            #print "Didn't find all attributes for this vehicle"
             MySpider.dropped_cars += 1
-            print "Dropped cars = " + str(MySpider.dropped_cars)
-            #print "Response = " + str(response.url)

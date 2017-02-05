@@ -3,6 +3,7 @@ import json
 import os
 import sys
 # from twisted.internet import reactor
+
 from scrapy.crawler import Crawler
 from scrapy import signals
 from craigslist_sample.spiders.test import MySpider
@@ -13,7 +14,6 @@ import re
 import threading
 
 threadLock = threading.Lock()
-FILE = open('items.jl', 'wb')
 result = []
 
 class KbbParser(object):
@@ -72,12 +72,12 @@ class MyThread(threading.Thread):
         # result.append(line)
         # threadLock.release()
 
-        threadLock.acquire()
-        if res:
-            line = json.dumps(dict(res)) + "\n"
-            FILE.write(line)
-
-        threadLock.release()
+        # threadLock.acquire()
+        # if res:
+        #     line = json.dumps(dict(res)) + "\n"
+        #     FILE.write(line)
+        #
+        # threadLock.release()
 
 class JsonWriterPipeline(object):
 
@@ -94,14 +94,16 @@ class JsonWriterPipeline(object):
 
     def process_item(self, item, spider):
         print "process_item"
-        t = MyThread(item, spider.input_args.excess_price)
-        t.start()
+        # t = MyThread(item, spider.input_args.excess_price)
+        # t.start()
 
-        #res = self.kbb_parse(item, spider.input_args.excess_price)
+        # parser = KbbParser(item['id'])
+        #
+        # res = parser.kbb_parse(item, spider.input_args.excess_price)
 
         #if res:
         #    line = json.dumps(dict(item)) + "\n"
         #    self.file.write(line)
         #    return item
 
-        #return res
+        return item

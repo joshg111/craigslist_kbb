@@ -1,7 +1,6 @@
-import scrapy
 from scrapy.item import Item, Field
 
-class CraigslistSampleItem(scrapy.Item):
+class CraigslistSampleItem(Item):
     price = Field()
     thumbnail = Field()
     desc = Field()
@@ -20,7 +19,7 @@ class CraigslistSampleItem(scrapy.Item):
     price_list = Field()
     id = Field()
 
-class KbbItem(scrapy.Item):
+class KbbItem(Item):
     title = Field()
     url = Field()
     style = Field()

@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: jsonpointer
+Version: 1.0
+Summary:  Identify specific nodes in a JSON document (RFC 6901) 
+Home-page: https://github.com/stefankoegl/python-json-pointer
+Author: Stefan Kögl
+Author-email: stefan@skoegl.net
+License: Modified BSD License
+Description: UNKNOWN
+Platform: UNKNOWN
