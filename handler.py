@@ -19,14 +19,21 @@ import json
 import time
 from twisted.internet import reactor
 
+DEBUG = True
+def Log(myLog):
+    if DEBUG:
+        print myLog
+
 TRANSMISSION = {'automatic': '2', 'manual': '1'}
 RESULT = []
 
 def my_handler():
+    print "engine started"
     pass
 
 def scraped_handler(item):
     global RESULT
+    Log("scraped_handler")
     if item != None:
         RESULT.append(dict(item))
 
@@ -36,6 +43,7 @@ def setup_crawler(url_list, args):
         reactor.stop()
     except RuntimeError:  # raised if already stopped or in shutdown stage
         pass
+
     settings = get_project_settings()
     crawler = CrawlerProcess(settings)
     crawler.crawl('craigs', url_list, args)

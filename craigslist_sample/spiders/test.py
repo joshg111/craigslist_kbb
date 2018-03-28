@@ -8,6 +8,13 @@ import re
 import time
 import os
 
+
+DEBUG = True
+def Log(myLog):
+    if DEBUG:
+        print myLog
+
+
 class MySpider(CrawlSpider):
 
     name = "craigs"
@@ -27,6 +34,8 @@ class MySpider(CrawlSpider):
 
         super(MySpider, self).__init__(*args, **kwargs)
 
+        print "url_list = ", url_list
+
         self.start_urls = url_list
         self.allowed_domains = ["craigslist.org", "kbb.com"]
 
@@ -37,11 +46,15 @@ class MySpider(CrawlSpider):
         cars = response.xpath('//a[@class="result-image gallery"]/@href').extract()
 
         for i, c in enumerate(cars):
-            url = ""
-            if c.startswith('//'):
-                url = 'http:' + c
-            else:
-                url = 'http://sandiego.craigslist.org' + c
+
+            url = c
+            # Commenting out the following, seems cars array data
+            # has changed.
+            # url = ""
+            # if c.startswith('//'):
+            #     url = 'http:' + c
+            # else:
+            #     url = 'http://sandiego.craigslist.org' + c
 
             request = Request(url, callback=self.parse_items, errback = lambda x: self.download_errback(x, url, None), dont_filter=True)
             if i <= 50:
@@ -61,10 +74,14 @@ class MySpider(CrawlSpider):
         return None
 
     def kbb_final_parse(self, response):
+        Log("kbb_final_parse")
         craigs_item = response.meta['item']
         page = response.body
-        m = re.search('defaultprice\': \'(\d*)\'', page)
+        # 3/27/18: The following regex no longer works
+        # m = re.search('defaultprice\': \'(\d*)\'', page)
+        m = re.search('defaultprice%22%3a(\d*)', page)
         if m == None:
+            Log("failed to find final price")
             return
 
         good_condition_price = int(m.group(1))
@@ -76,10 +93,11 @@ class MySpider(CrawlSpider):
 
         # if percent_above_kbb > self.input_args.excess_price:
         #     return
-
+        Log("kbb_final_parse: Returning item")
         yield craigs_item
 
     def kbb_parse(self, response):
+        Log("kbb_parse")
         craigs_item = response.meta['item']
         item = KbbItem()
 
@@ -115,6 +133,7 @@ class MySpider(CrawlSpider):
 
         final_kbb_url += "&condition=good&mileage=" + str(craigs_item['odometer']) + "&pricetype=private-party&printable=true"
         item["url"] = final_kbb_url
+        Log("final_kbb_url = " + str(final_kbb_url))
         craigs_item['kbb_url'] = final_kbb_url
         MySpider.kbb_parsed += 1
         craigs_item['id'] = MySpider.kbb_parsed
@@ -131,6 +150,7 @@ class MySpider(CrawlSpider):
         if MySpider.found_cars > 50:
             return
 
+
         kbb_url = ""
         request = None
         items = []
@@ -140,6 +160,7 @@ class MySpider(CrawlSpider):
         item['url'] = response.url
         price_list = response.xpath('//span[@class="price"]').xpath('text()').extract()
         if not price_list:
+            Log("Failed to find price_list")
             return
 
         price = str(price_list[0][1:].replace(',', ''))
@@ -178,6 +199,7 @@ class MySpider(CrawlSpider):
             else:
                 pass
 
+
         if "make" in item and "model" in item and "year" in item and "odometer" in item and \
         item['odometer'] <= self.input_args.max_miles:
             model_str = '-'.join([str(i) for i in item["model"]])
@@ -191,10 +213,13 @@ class MySpider(CrawlSpider):
                 kbb_url += item["type"]
 
             item["kbb_url"] = kbb_url
+            Log("kbb_url = " + str(kbb_url))
             request = Request(item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, item["kbb_url"], response.url), dont_filter=True)
             request.meta['item'] = item
             MySpider.found_cars += 1
+            Log("found_cars = " + str(MySpider.found_cars))
             yield request
 
         else:
             MySpider.dropped_cars += 1
+            Log("dropped_cars = " + str(MySpider.dropped_cars))
