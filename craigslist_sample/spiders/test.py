@@ -15,6 +15,20 @@ def Log(myLog):
         print myLog
 
 
+def remove_nearby_cars(rsp):
+    body = rsp.body
+    pos = body.find('Here are some from nearby areas')
+    if pos < 0:
+        print "Nearby cars not found."
+    else:
+        print "Nearby cars were found."
+        body = body[:pos]
+        return rsp.replace(body=body)
+
+    return rsp
+
+
+
 class MySpider(CrawlSpider):
 
     name = "craigs"
@@ -43,6 +57,9 @@ class MySpider(CrawlSpider):
         pass
 
     def parse_start_url(self, response):
+
+        response = remove_nearby_cars(response)
+
         cars = response.xpath('//a[@class="result-image gallery"]/@href').extract()
 
         for i, c in enumerate(cars):

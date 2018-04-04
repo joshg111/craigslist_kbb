@@ -30,7 +30,3 @@ provider:
 functions:
   hello:
     handler: handler.entry_point
-    events:
-       - http:
-           path: cars
-           method: get
