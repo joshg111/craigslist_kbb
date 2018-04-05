@@ -18,6 +18,7 @@ class CraigslistSampleItem(Item):
     percent_above_kbb = Field()
     price_list = Field()
     id = Field()
+    style = Field()
 
 class KbbItem(Item):
     title = Field()

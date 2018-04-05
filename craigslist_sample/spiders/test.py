@@ -8,7 +8,7 @@ import re
 import time
 import os
 
-
+PARSED_NUM = 0
 DEBUG = True
 def Log(myLog):
     if DEBUG:
@@ -27,6 +27,29 @@ def remove_nearby_cars(rsp):
 
     return rsp
 
+
+def find_style(response, craigs_style):
+    '''Tries to find the style based on the given craigslist style.
+    If it can't find the style, then the first style is returned'''
+
+    default_style = None
+    attrs = response.xpath('//div[contains(@class, "vehicle-styles-container")]')
+
+    if attrs and attrs[0]:
+        default_style = attrs[0].xpath('.//a/@href')
+        if not craigs_style:
+            return default_style
+        for style_container in attrs:
+            style = style_container.xpath('.//div[@class="style-name section-title"]/text()')
+            if style and style[0]:
+                style_name = style[0].extract().strip()
+                # Log("Matching kbb style = " + style_name + ", matching craigs style = " + craigs_style)
+                if craigs_style.lower().find(style_name.split(' ')[0].lower()) > -1:
+                    Log("Matched craigs style = " + craigs_style + ", with kbb style = " + style_name)
+                    # Found the kbb style that matches the craigslist style
+                    return style_container.xpath('.//a/@href')
+
+    return default_style
 
 
 class MySpider(CrawlSpider):
@@ -61,8 +84,9 @@ class MySpider(CrawlSpider):
         response = remove_nearby_cars(response)
 
         cars = response.xpath('//a[@class="result-image gallery"]/@href').extract()
+        Log("Number of craigslist cars to crawl = " + str(len(cars)))
 
-        for i, c in enumerate(cars):
+        for i, c in enumerate(cars[:30]):
 
             url = c
             # Commenting out the following, seems cars array data
@@ -74,10 +98,34 @@ class MySpider(CrawlSpider):
             #     url = 'http://sandiego.craigslist.org' + c
 
             request = Request(url, callback=self.parse_items, errback = lambda x: self.download_errback(x, url, None), dont_filter=True)
-            if i <= 50:
-                yield request
+            yield request
 
-    def find_model(self, model):
+            # if i <= 50:
+                # yield request
+
+
+    def find_style_by_desc(self, desc):
+        model = self.find_model_by_desc(desc)
+        if desc.find(model) > -1:
+            return desc[desc.find(model) + len(model):]
+
+        return None
+
+    def find_model_by_desc(self, desc):
+        ''' Return a hyphenated version of the model which is consumed by kbb '''
+
+        for sub_make_model in self.input_args.make_model:
+            input_make_model = " ".join(sub_make_model.split('+')[1:])
+
+            if desc.lower().find(input_make_model.lower()) > -1:
+                final_model = input_make_model
+                return final_model
+
+        return None
+
+
+    def find_kbb_model(self, model):
+        ''' Return a hyphenated version of the model which is consumed by kbb '''
         for sub_make_model in self.input_args.make_model:
             removed_make = sub_make_model[sub_make_model.find('+')+1:]
             removed_plus = removed_make.replace('+', '-').lower()
@@ -113,6 +161,7 @@ class MySpider(CrawlSpider):
         Log("kbb_final_parse: Returning item")
         yield craigs_item
 
+
     def kbb_parse(self, response):
         Log("kbb_parse")
         craigs_item = response.meta['item']
@@ -129,8 +178,9 @@ class MySpider(CrawlSpider):
                 yield request
                 return
 
+        attrs = find_style(response, craigs_item["style"])
         # Get the kbb style of the car
-        attrs = response.xpath('//div[@class="vehicle-styles-container clear row-white first"]//a/@href')
+        # attrs = response.xpath('//div[@class="vehicle-styles-container clear row-white first"]//a/@href')
         final_kbb_url = ""
         if not attrs or not attrs[0]:
             final_kbb_url = response.url.replace('options/', '')
@@ -138,6 +188,7 @@ class MySpider(CrawlSpider):
         else:
             item["style"] = attrs[0].extract().replace('options/', '')
             final_kbb_url = "http://www.kbb.com" + item["style"]
+            Log("Found kbb style = " + item["style"])
 
         # Get the kbb title of the car
         attrs = response.xpath('//h2[@class="section-title white with-module"]')
@@ -161,12 +212,13 @@ class MySpider(CrawlSpider):
 
     def download_errback(self, e, kbb_url, craigs_url):
         MySpider.download_failures += 1
+        Log("Download failures = " + str(MySpider.download_failures) + ", err = " + str(e) + ", kbb url = " + str(kbb_url) + ", craigs_url = " + craigs_url)
         pass
 
     def parse_items(self, response):
-        if MySpider.found_cars > 50:
-            return
-
+        global PARSED_NUM
+        PARSED_NUM += 1
+        Log("parsed items = " + str(PARSED_NUM))
 
         kbb_url = ""
         request = None
@@ -186,9 +238,13 @@ class MySpider(CrawlSpider):
         item['price'] = int(price)
         pic = response.xpath('//div[@class="slide first visible"]/img/@src')[0].extract()
         item['thumbnail'] = pic
-        item['location'] = response.xpath('//span[@class="postingtitletext"]/small').xpath('text()').extract()[0]
+        location = response.xpath('//span[@class="postingtitletext"]/small').xpath('text()').extract()
+        item['location'] = location[0] if location else None
 
         for i, attr in enumerate(attrs):
+            if i == 0:
+                Log("Processing craigs attributes")
+
             span_text_list = attr.xpath('text()').extract()
             if i == 0:
                 desc = attr.xpath('b/text()').extract()[0].split()
@@ -217,11 +273,18 @@ class MySpider(CrawlSpider):
                 pass
 
 
+        Log("Done craigs attributes")
+
         if "make" in item and "model" in item and "year" in item and "odometer" in item and \
         item['odometer'] <= self.input_args.max_miles:
-            model_str = '-'.join([str(i) for i in item["model"]])
-            model_str = self.find_model(model_str)
 
+            Log("Processing valid item")
+
+            model_str = '-'.join([str(i) for i in item["model"]])
+            model_str = self.find_kbb_model(model_str)
+            item["model"] = model_str
+            item["style"] = self.find_style_by_desc(item["desc"])
+            Log("craigslist style = " + str(item["style"]))
 
             kbb_url = "http://www.kbb.com/" + item["make"] + "/" + model_str + "/" + item["year"] + "-" + item["make"] + "-" + model_str + "/styles/?intent=buy-used"
 

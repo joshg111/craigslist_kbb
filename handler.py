@@ -54,17 +54,21 @@ def setup_crawler(url_list, args, conn):
 
     settings = get_project_settings()
 
-    runner = CrawlerRunner(settings)
+    # runner = CrawlerRunner(settings)
+    crawler = CrawlerProcess(settings)
 
 
-    d = runner.crawl('craigs', url_list, args)
+    d = crawler.crawl('craigs', url_list, args)
     d.addBoth(lambda _: reactor.stop())
 
-    my_crawler = next(iter(runner.crawlers))
+    # my_crawler = next(iter(runner.crawlers))
+    my_crawler = next(iter(crawler.crawlers))
     my_crawler.signals.connect(my_handler, signals.engine_started)
     my_crawler.signals.connect(scraped_handler, signals.item_scraped)
 
-    reactor.run()
+    # reactor.run()
+    crawler.start()
+    # crawler.stop()
 
     conn.send(RESULT)
     conn.close()
@@ -127,6 +131,7 @@ def entry_point(event, context):
 
     # Sort the results
     res = sorted(res, key=lambda o: float(o["percent_above_kbb"]))
+    Log("Result length = " + str(len(res)))
 
     # f = open("items.jl", 'r')
     # body = {
