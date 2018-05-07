@@ -19,6 +19,7 @@ class CraigslistSampleItem(Item):
     price_list = Field()
     id = Field()
     style = Field()
+    timeago = Field()
 
 class KbbItem(Item):
     title = Field()

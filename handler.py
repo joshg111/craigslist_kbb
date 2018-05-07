@@ -75,7 +75,7 @@ def setup_crawler(url_list, args, conn):
 
 
 def build_craigs_url(args):
-    base_url = "http://sandiego.craigslist.org/search/cto?sort=date&hasPic=1&auto_title_status=1&auto_fuel_type=1"
+
     make_model_list = args.make_model
     min_price = str(args.min_price)
     max_price = str(args.max_price)
@@ -83,6 +83,8 @@ def build_craigs_url(args):
     max_year = str(args.max_year)
     min_miles = str(args.min_miles)
     max_miles = str(args.max_miles)
+    city = str(args.city)
+    base_url = "http://" + city + ".craigslist.org/search/cto?sort=date&hasPic=1&auto_title_status=1&auto_fuel_type=1"
 
     url_list = []
     for make_model in make_model_list:
@@ -107,6 +109,7 @@ def get_args(my_args=[]):
     parser.add_argument("--min_miles", type=int, default=0, help="The minimum number of miles on the car.")
     parser.add_argument("--max_miles", type=int, default=200000, help="The maximum number of miles on the car.")
     parser.add_argument("--transmission", choices=["automatic", "manual"], default="automatic", help="The transmission type of the car.")
+    parser.add_argument("--city", default="sandiego", help="The craigslist city, eg. sandiego, sfbay")
 
     if my_args:
         args = parser.parse_args(my_args)

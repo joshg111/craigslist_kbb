@@ -16,6 +16,8 @@ def Log(myLog):
 
 
 def remove_nearby_cars(rsp):
+    '''Craigslist returns nearby locations when the number of car results
+    is less than the 100.'''
     body = rsp.body
     pos = body.find('Here are some from nearby areas')
     if pos < 0:
@@ -39,12 +41,15 @@ def find_style(response, craigs_style):
         default_style = attrs[0].xpath('.//a/@href')
         if not craigs_style:
             return default_style
+
+        craigs_style = craigs_style.strip()
+
         for style_container in attrs:
             style = style_container.xpath('.//div[@class="style-name section-title"]/text()')
             if style and style[0]:
                 style_name = style[0].extract().strip()
                 # Log("Matching kbb style = " + style_name + ", matching craigs style = " + craigs_style)
-                if craigs_style.lower().find(style_name.split(' ')[0].lower()) > -1:
+                if craigs_style.lower().split(' ')[0] in [i.lower() for i in style_name.split(' ')]:
                     Log("Matched craigs style = " + craigs_style + ", with kbb style = " + style_name)
                     # Found the kbb style that matches the craigslist style
                     return style_container.xpath('.//a/@href')
@@ -105,7 +110,8 @@ class MySpider(CrawlSpider):
 
 
     def find_style_by_desc(self, desc):
-        model = self.find_model_by_desc(desc)
+        model = self.find_model_by_desc(desc).lower()
+        desc = desc.lower()
         if desc.find(model) > -1:
             return desc[desc.find(model) + len(model):]
 
@@ -199,7 +205,8 @@ class MySpider(CrawlSpider):
             item['title'] = title
             items.append(item)
 
-        final_kbb_url += "&condition=good&mileage=" + str(craigs_item['odometer']) + "&pricetype=private-party&printable=true"
+        # final_kbb_url += "&condition=good&mileage=" + str(craigs_item['odometer']) + "&pricetype=private-party&printable=true"
+        final_kbb_url += "&condition=good&mileage=" + str(craigs_item['odometer']) + "&pricetype=private-party"
         item["url"] = final_kbb_url
         Log("final_kbb_url = " + str(final_kbb_url))
         craigs_item['kbb_url'] = final_kbb_url
@@ -240,6 +247,8 @@ class MySpider(CrawlSpider):
         item['thumbnail'] = pic
         location = response.xpath('//span[@class="postingtitletext"]/small').xpath('text()').extract()
         item['location'] = location[0] if location else None
+        timeago = response.xpath('//div[@class="postinginfos"]//time/@datetime').extract()
+        item['timeago'] = timeago[0] if timeago else None
 
         for i, attr in enumerate(attrs):
             if i == 0:
