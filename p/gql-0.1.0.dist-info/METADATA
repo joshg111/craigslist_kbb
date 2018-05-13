@@ -1,0 +1,27 @@
+Metadata-Version: 2.0
+Name: gql
+Version: 0.1.0
+Summary: GraphQL client for Python
+Home-page: https://github.com/graphql-python/gql
+Author: Syrus Akbary
+Author-email: me@syrusakbary.com
+License: MIT
+Keywords: api graphql protocol rest relay gql client
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: graphql-core (>=0.5.0)
+Requires-Dist: promise (>=0.4.0)
+Requires-Dist: six (>=1.10.0)
+
+UNKNOWN
+
+
