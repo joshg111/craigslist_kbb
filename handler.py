@@ -135,7 +135,7 @@ def entry_point(event, context):
     # Sort the results
     res = sorted(res, key=lambda o: float(o["percent_above_kbb"]))
     Log("Result length = " + str(len(res)))
-
+    Log("Time Elapsed = " + str(time.time() - start))
     # f = open("items.jl", 'r')
     # body = {
     #     "message": f.read()

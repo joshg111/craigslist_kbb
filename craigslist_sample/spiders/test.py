@@ -7,12 +7,21 @@ from subprocess import check_output
 import re
 import time
 import os
+from utils.prisma_gql import *
+
 
 PARSED_NUM = 0
 DEBUG = True
 def Log(myLog):
     if DEBUG:
         print myLog
+
+
+def aggregate_item(craigs_item, cached_car):
+    car = cached_car["kbb_value"]
+    craigs_item["good_condition_price"] = car["good_condition_price"]
+    craigs_item["percent_above_kbb"] = car["percent_above_kbb"]
+    craigs_item["kbb_url"] = car["kbb_url"]
 
 
 def remove_nearby_cars(rsp):
@@ -80,6 +89,7 @@ class MySpider(CrawlSpider):
 
         self.start_urls = url_list
         self.allowed_domains = ["craigslist.org", "kbb.com"]
+        self.cacheClient = GqlClient()
 
     def spider_closed(self, spider):
         pass
@@ -91,16 +101,9 @@ class MySpider(CrawlSpider):
         cars = response.xpath('//a[@class="result-image gallery"]/@href').extract()
         Log("Number of craigslist cars to crawl = " + str(len(cars)))
 
-        for i, c in enumerate(cars[:30]):
+        for i, url in enumerate(cars[:30]):
 
-            url = c
-            # Commenting out the following, seems cars array data
-            # has changed.
-            # url = ""
-            # if c.startswith('//'):
-            #     url = 'http:' + c
-            # else:
-            #     url = 'http://sandiego.craigslist.org' + c
+
 
             request = Request(url, callback=self.parse_items, errback = lambda x: self.download_errback(x, url, None), dont_filter=True)
             yield request
@@ -144,6 +147,12 @@ class MySpider(CrawlSpider):
 
         return None
 
+    def put_cache(self, craigs_url, good_condition_price, percent_above_kbb, kbb_url):
+        self.cacheClient.put(craigs_url, good_condition_price, percent_above_kbb, kbb_url)
+
+    def find_cached_car(self, craigs_url):
+        return self.cacheClient.get(craigs_url)
+
     def kbb_final_parse(self, response):
         Log("kbb_final_parse")
         craigs_item = response.meta['item']
@@ -161,6 +170,7 @@ class MySpider(CrawlSpider):
         percent_above_kbb = int(((float(craigs_item['price']) / good_condition_price) - 1) * 100)
         craigs_item["percent_above_kbb"] = percent_above_kbb
 
+        self.put_cache(craigs_item["url"], good_condition_price, percent_above_kbb, response.url)
 
         # if percent_above_kbb > self.input_args.excess_price:
         #     return
@@ -287,6 +297,8 @@ class MySpider(CrawlSpider):
         if "make" in item and "model" in item and "year" in item and "odometer" in item and \
         item['odometer'] <= self.input_args.max_miles:
 
+            MySpider.found_cars += 1
+            Log("found_cars = " + str(MySpider.found_cars))
             Log("Processing valid item")
 
             model_str = '-'.join([str(i) for i in item["model"]])
@@ -303,11 +315,18 @@ class MySpider(CrawlSpider):
 
             item["kbb_url"] = kbb_url
             Log("kbb_url = " + str(kbb_url))
-            request = Request(item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, item["kbb_url"], response.url), dont_filter=True)
-            request.meta['item'] = item
-            MySpider.found_cars += 1
-            Log("found_cars = " + str(MySpider.found_cars))
-            yield request
+
+            # Check cache
+            car = self.find_cached_car(item["url"])
+            if car["car"]:
+                aggregate_item(item, car["car"])
+                yield item
+
+            else:
+                # Build request
+                request = Request(item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, item["kbb_url"], response.url), dont_filter=True)
+                request.meta['item'] = item
+                yield request
 
         else:
             MySpider.dropped_cars += 1
