@@ -17,11 +17,13 @@ def Log(myLog):
         print myLog
 
 
-def aggregate_item(craigs_item, cached_car):
-    car = cached_car["kbb_value"]
-    craigs_item["good_condition_price"] = car["good_condition_price"]
-    craigs_item["percent_above_kbb"] = car["percent_above_kbb"]
-    craigs_item["kbb_url"] = car["kbb_url"]
+def aggregate_item(car):
+    item = CraigslistSampleItem()
+    
+    for i in car.iterkeys():
+        item[i] = car[i]
+
+    return item
 
 
 def remove_nearby_cars(rsp):
@@ -103,13 +105,16 @@ class MySpider(CrawlSpider):
 
         for i, url in enumerate(cars[:30]):
 
+            # Check cache
+            car = self.find_cached_car(url)
+            if car["car"]:
+                item = aggregate_item(car["car"])
+                yield item
 
+            else:
+                request = Request(url, callback=self.parse_items, errback = lambda x: self.download_errback(x, url, None), dont_filter=True)
+                yield request
 
-            request = Request(url, callback=self.parse_items, errback = lambda x: self.download_errback(x, url, None), dont_filter=True)
-            yield request
-
-            # if i <= 50:
-                # yield request
 
 
     def find_style_by_desc(self, desc):
@@ -147,8 +152,8 @@ class MySpider(CrawlSpider):
 
         return None
 
-    def put_cache(self, craigs_url, good_condition_price, percent_above_kbb, kbb_url):
-        self.cacheClient.put(craigs_url, good_condition_price, percent_above_kbb, kbb_url)
+    def put_cache(self, craigs_item):
+        self.cacheClient.put(craigs_item)
 
     def find_cached_car(self, craigs_url):
         return self.cacheClient.get(craigs_url)
@@ -170,7 +175,7 @@ class MySpider(CrawlSpider):
         percent_above_kbb = int(((float(craigs_item['price']) / good_condition_price) - 1) * 100)
         craigs_item["percent_above_kbb"] = percent_above_kbb
 
-        self.put_cache(craigs_item["url"], good_condition_price, percent_above_kbb, response.url)
+        self.put_cache(craigs_item)
 
         # if percent_above_kbb > self.input_args.excess_price:
         #     return
@@ -221,7 +226,6 @@ class MySpider(CrawlSpider):
         Log("final_kbb_url = " + str(final_kbb_url))
         craigs_item['kbb_url'] = final_kbb_url
         MySpider.kbb_parsed += 1
-        craigs_item['id'] = MySpider.kbb_parsed
         request = Request(craigs_item["kbb_url"], callback=self.kbb_final_parse, errback = lambda x: self.download_errback(x, craigs_item["kbb_url"], response.url), dont_filter=True)
         request.meta['item'] = craigs_item
         yield request
@@ -316,17 +320,10 @@ class MySpider(CrawlSpider):
             item["kbb_url"] = kbb_url
             Log("kbb_url = " + str(kbb_url))
 
-            # Check cache
-            car = self.find_cached_car(item["url"])
-            if car["car"]:
-                aggregate_item(item, car["car"])
-                yield item
-
-            else:
-                # Build request
-                request = Request(item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, item["kbb_url"], response.url), dont_filter=True)
-                request.meta['item'] = item
-                yield request
+            # Build request
+            request = Request(item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, item["kbb_url"], response.url), dont_filter=True)
+            request.meta['item'] = item
+            yield request
 
         else:
             MySpider.dropped_cars += 1

@@ -16,8 +16,6 @@ class CraigslistSampleItem(Item):
     kbb_url = Field()
     good_condition_price = Field()
     percent_above_kbb = Field()
-    price_list = Field()
-    id = Field()
     style = Field()
     timeago = Field()
 
