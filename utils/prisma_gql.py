@@ -99,13 +99,13 @@ class GqlClient():
 
         gql_str = gql_str.format(where=where)
 
-        return Request(PRISMA_URL, body=gql_str)
+        # return Request(PRISMA_URL, body=gql_str)
 
-        # query = gql(gql_str)
+        query = gql(gql_str)
 
-        # res = self.client.execute(query)
-        # Log(res)
-        # return res
+        res = self.client.execute(query)
+        Log(res)
+        return res
 
     def delete(self, url):
         mutation = '''mutation {{

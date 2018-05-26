@@ -8,6 +8,7 @@ import re
 import time
 import os
 from utils.prisma_gql import *
+from utils.find_style import *
 
 
 PARSED_NUM = 0
@@ -19,7 +20,7 @@ def Log(myLog):
 
 def aggregate_item(car):
     item = CraigslistSampleItem()
-    
+
     for i in car.iterkeys():
         item[i] = car[i]
 
@@ -39,33 +40,6 @@ def remove_nearby_cars(rsp):
         return rsp.replace(body=body)
 
     return rsp
-
-
-def find_style(response, craigs_style):
-    '''Tries to find the style based on the given craigslist style.
-    If it can't find the style, then the first style is returned'''
-
-    default_style = None
-    attrs = response.xpath('//div[contains(@class, "vehicle-styles-container")]')
-
-    if attrs and attrs[0]:
-        default_style = attrs[0].xpath('.//a/@href')
-        if not craigs_style:
-            return default_style
-
-        craigs_style = craigs_style.strip()
-
-        for style_container in attrs:
-            style = style_container.xpath('.//div[@class="style-name section-title"]/text()')
-            if style and style[0]:
-                style_name = style[0].extract().strip()
-                # Log("Matching kbb style = " + style_name + ", matching craigs style = " + craigs_style)
-                if craigs_style.lower().split(' ')[0] in [i.lower() for i in style_name.split(' ')]:
-                    Log("Matched craigs style = " + craigs_style + ", with kbb style = " + style_name)
-                    # Found the kbb style that matches the craigslist style
-                    return style_container.xpath('.//a/@href')
-
-    return default_style
 
 
 class MySpider(CrawlSpider):
@@ -99,21 +73,25 @@ class MySpider(CrawlSpider):
     def parse_start_url(self, response):
 
         response = remove_nearby_cars(response)
-
+        print "encoding = " + str(response.encoding)
         cars = response.xpath('//a[@class="result-image gallery"]/@href').extract()
         Log("Number of craigslist cars to crawl = " + str(len(cars)))
 
         for i, url in enumerate(cars[:30]):
 
             # Check cache
-            car = self.find_cached_car(url)
-            if car["car"]:
-                item = aggregate_item(car["car"])
-                yield item
+            # car = self.find_cached_car(url)
+            # if car["car"]:
+            #     item = aggregate_item(car["car"])
+            #     yield item
+            #
+            # else:
+                # request = Request(url, callback=self.parse_items, errback = lambda x: self.download_errback(x, url, None), dont_filter=True)
+                # yield request
 
-            else:
-                request = Request(url, callback=self.parse_items, errback = lambda x: self.download_errback(x, url, None), dont_filter=True)
-                yield request
+
+            request = Request(url, callback=self.parse_items, errback = lambda x: self.download_errback(x, url, None), dont_filter=True)
+            yield request
 
 
 
@@ -169,6 +147,8 @@ class MySpider(CrawlSpider):
             Log("failed to find final price")
             return
 
+        Log("kbb_final_parse url = " + response.url)
+        Log(m.group(1))
         good_condition_price = int(m.group(1))
         craigs_item['good_condition_price'] = good_condition_price
 
@@ -203,11 +183,11 @@ class MySpider(CrawlSpider):
         # Get the kbb style of the car
         # attrs = response.xpath('//div[@class="vehicle-styles-container clear row-white first"]//a/@href')
         final_kbb_url = ""
-        if not attrs or not attrs[0]:
+        if not attrs:
             final_kbb_url = response.url.replace('options/', '')
 
         else:
-            item["style"] = attrs[0].extract().replace('options/', '')
+            item["style"] = attrs.replace('options/', '')
             final_kbb_url = "http://www.kbb.com" + item["style"]
             Log("Found kbb style = " + item["style"])
 
@@ -320,10 +300,17 @@ class MySpider(CrawlSpider):
             item["kbb_url"] = kbb_url
             Log("kbb_url = " + str(kbb_url))
 
-            # Build request
-            request = Request(item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, item["kbb_url"], response.url), dont_filter=True)
-            request.meta['item'] = item
-            yield request
+            # Check cache
+            car = self.find_cached_car(item["url"])
+            if car["car"]:
+                item = aggregate_item(car["car"])
+                yield item
+
+            else:
+                # Build request
+                request = Request(item["kbb_url"], callback=self.kbb_parse, errback = lambda x: self.download_errback(x, item["kbb_url"], response.url), dont_filter=True)
+                request.meta['item'] = item
+                yield request
 
         else:
             MySpider.dropped_cars += 1
