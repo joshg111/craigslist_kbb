@@ -27,8 +27,10 @@ def find_style(response, craigs_style):
 
         for style_container in attrs:
             style = style_container.xpath('.//div[@class="button-header"]/text()')[0].extract()
-            if style and style[0]:
-                style_name = style[0].strip()
+            Log("style = " + str(style))
+            if style:
+                style_name = style.strip()
+                Log('kbb style_name = ' + style_name)
                 # Log("Matching kbb style = " + style_name + ", matching craigs style = " + craigs_style)
                 if craigs_style.lower().split(' ')[0] in [i.lower() for i in style_name.split(' ')]:
                     Log("Matched craigs style = " + craigs_style + ", with kbb style = " + style_name)
@@ -62,6 +64,8 @@ class TestFindStyle(unittest.TestCase):
         print "res = " + find_style(self.create_response('https://www.kbb.com/toyota/camry/2005/styles/?intent=buy-used'), 'se')
         pass
 
+    def test_b(self):
+        print "res = " + find_style(self.create_response('https://www.kbb.com/toyota/camry/2017/styles/?intent=buy-used'), 'se')
 
 
 if __name__ == '__main__':
